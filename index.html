@@ -221,6 +221,20 @@
   .table-scroll table { min-width: 560px; }
   .breakdown.panel .table-scroll table { min-width: 400px; }
 
+  /* ── Pagination bar ─────────────────────────────────────────────────────── */
+  .pagination { display: flex; align-items: center; gap: 4px; padding: 16px 0 4px; flex-wrap: wrap; }
+  .pg-btn { background: none; border: 1px solid var(--line); border-radius: var(--r);
+    padding: 0 12px; height: 36px; min-width: 36px; font-size: 13px; font-weight: 500;
+    color: var(--ink-2); font-family: var(--sans); cursor: pointer;
+    transition: background 120ms, border-color 120ms, color 120ms;
+    display: inline-flex; align-items: center; justify-content: center; }
+  .pg-btn:hover:not(:disabled) { background: var(--line-2); color: var(--ink); border-color: var(--ink-3); }
+  .pg-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+  .pg-btn.active { background: var(--ink); color: var(--bg); border-color: var(--ink); font-weight: 600; }
+  .pg-btn.nav { gap: 4px; padding: 0 14px; min-width: 44px; }
+  .pg-ellipsis { padding: 0 6px; color: var(--ink-3); font-size: 13px; user-select: none;
+    display: inline-flex; align-items: center; height: 36px; }
+
   /* ── Bottom tab bar (mobile nav) ───────────────────────────────────────── */
   .bottom-tab-bar { display: none; position: fixed; bottom: 0; left: 0; right: 0; z-index: 20;
     background: var(--surface); border-top: 1px solid var(--line);
@@ -337,6 +351,10 @@
     /* Body text minimum */
     body, .field label, .metric-trend, .panel-meta, .filter-bar select,
     .checkin-detail, .tool-bar-name { font-size: 14px; }
+
+    /* Pagination — compact on mobile: hide Prev/Next labels, keep arrows */
+    .pg-nav-label { display: none; }
+    .pg-btn { height: 40px; min-width: 40px; }
   }
 
   /* conn-label — hide text on very small screens, keep dot */
@@ -510,6 +528,7 @@
         <tbody id="recent-body"><tr><td colspan="7" class="loading">Loading tickets…</td></tr></tbody>
       </table>
     </div>
+    <div class="pagination" id="pagination-bar" role="navigation" aria-label="Recent tickets pages"></div>
   </div>
 </div>
 
@@ -1014,7 +1033,9 @@
   // ── Edit mode ───────────────────────────────────────────────────────────────
 
   async function startEdit(ticketId) {
-    const entry = entries.find(e => e.id === ticketId);
+    // IDs are integers from Supabase; the onclick passes them as strings — cast back.
+    const idNum = parseInt(ticketId, 10);
+    const entry = entries.find(e => e.id === idNum);
     if (!entry) { showToast('Ticket not found', true); return; }
 
     editState.active = true;
@@ -1106,7 +1127,8 @@
   // ── Delete ──────────────────────────────────────────────────────────────────
 
   function promptDelete(ticketId, ticketRef) {
-    deleteState.ticketId = ticketId;
+    // Cast to integer to match the numeric IDs in the entries array.
+    deleteState.ticketId = parseInt(ticketId, 10);
     deleteState.ticketRef = ticketRef;
     document.getElementById('delete-dialog-body').textContent =
       `Delete ticket #${ticketRef}? This cannot be undone.`;
@@ -1226,14 +1248,15 @@
       o.value = a.id; o.textContent = a.full_name;
       sel.appendChild(o);
     });
-    document.getElementById('f-analyst').onchange = e => { filters.analyst = e.target.value; renderDash(); };
-    document.getElementById('f-tool').onchange    = e => { filters.tool    = e.target.value; renderDash(); };
-    document.getElementById('f-status').onchange  = e => { filters.status  = e.target.value; renderDash(); };
-    document.getElementById('f-range').onchange   = e => { filters.range   = e.target.value; renderDash(); };
+    document.getElementById('f-analyst').onchange = e => { filters.analyst = e.target.value; currentPage = 1; renderDash(); };
+    document.getElementById('f-tool').onchange    = e => { filters.tool    = e.target.value; currentPage = 1; renderDash(); };
+    document.getElementById('f-status').onchange  = e => { filters.status  = e.target.value; currentPage = 1; renderDash(); };
+    document.getElementById('f-range').onchange   = e => { filters.range   = e.target.value; currentPage = 1; renderDash(); };
   }
 
   function resetFilters() {
     filters = { analyst: '', tool: '', status: '', range: 'all' };
+    currentPage = 1;
     document.getElementById('f-analyst').value = '';
     document.getElementById('f-tool').value = '';
     document.getElementById('f-status').value = '';
@@ -1363,8 +1386,23 @@
       </tr>
     `).join('');
 
-    const recent = data.slice(0, 15);
-    document.getElementById('recent-count').textContent = `Showing ${recent.length} of ${data.length}`;
+    // ── Pagination ────────────────────────────────────────────────────────
+    const PAGE_SIZE = 15;
+    const totalPages = Math.max(1, Math.ceil(data.length / PAGE_SIZE));
+    // Clamp currentPage to valid range (e.g. after deletes)
+    if (currentPage > totalPages) currentPage = totalPages;
+    const pageStart = (currentPage - 1) * PAGE_SIZE;
+    const pageEnd   = Math.min(pageStart + PAGE_SIZE, data.length);
+    const recent    = data.slice(pageStart, pageEnd);
+
+    // "Showing X–Y of Z"
+    if (data.length === 0) {
+      document.getElementById('recent-count').textContent = 'No tickets';
+    } else {
+      document.getElementById('recent-count').textContent =
+        `Showing ${pageStart + 1}–${pageEnd} of ${data.length}`;
+    }
+
     if (recent.length === 0) {
       document.getElementById('recent-body').innerHTML = '<tr><td colspan="7" class="loading">No tickets match your filters</td></tr>';
     } else {
@@ -1375,7 +1413,6 @@
         const dayLabel = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][new Date(e.date+'T12:00').getDay()];
         const toolsDisplay = e.tools.slice(0, 3).map(t => `<span class="tool-mini">${t.name}</span>`).join('') +
           (e.tools.length > 3 ? `<span class="tool-mini">+${e.tools.length-3}</span>` : '');
-        const escapedId = encodeURIComponent(e.id);
         const escapedRef = (e.ticketRef || '').replace(/'/g, "\\'");
         return `
           <tr>
@@ -1396,6 +1433,55 @@
       }).join('');
       document.getElementById('recent-body').innerHTML = rows;
     }
+
+    renderPagination(totalPages);
+  }
+
+  // ── Pagination helpers ───────────────────────────────────────────────────
+  let currentPage = 1;
+
+  function goToPage(p) {
+    currentPage = p;
+    renderDash();
+    // Scroll recent panel into view smoothly
+    const panel = document.querySelector('.recent.panel');
+    if (panel) panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function renderPagination(totalPages) {
+    const container = document.getElementById('pagination-bar');
+    if (!container) return;
+    if (totalPages <= 1) { container.innerHTML = ''; return; }
+
+    const cur = currentPage;
+    // Build page number list with ellipsis
+    const pages = [];
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      const show = new Set([1, 2, totalPages - 1, totalPages,
+        cur - 1, cur, cur + 1].filter(p => p >= 1 && p <= totalPages));
+      let prev = 0;
+      [...show].sort((a,b) => a-b).forEach(p => {
+        if (prev && p - prev > 1) pages.push('…');
+        pages.push(p);
+        prev = p;
+      });
+    }
+
+    const ARROW_PREV = `<svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true"><path d="M8 3L4 7l4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+    const ARROW_NEXT = `<svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true"><path d="M6 3l4 4-4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+
+    const btns = pages.map(p => {
+      if (p === '…') return `<span class="pg-ellipsis" aria-hidden="true">…</span>`;
+      const active = p === cur ? ' active' : '';
+      return `<button class="pg-btn${active}" onclick="goToPage(${p})" aria-label="Page ${p}" ${p === cur ? 'aria-current="page"' : ''}>${p}</button>`;
+    }).join('');
+
+    container.innerHTML =
+      `<button class="pg-btn nav" onclick="goToPage(${cur-1})" aria-label="Previous page" ${cur === 1 ? 'disabled' : ''}>${ARROW_PREV}<span class="pg-nav-label">Prev</span></button>` +
+      btns +
+      `<button class="pg-btn nav" onclick="goToPage(${cur+1})" aria-label="Next page" ${cur === totalPages ? 'disabled' : ''}><span class="pg-nav-label">Next</span>${ARROW_NEXT}</button>`;
   }
 
   // ── Daily Status / Check-in ─────────────────────────────────────────────────
