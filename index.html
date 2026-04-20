@@ -250,6 +250,11 @@
     .panel { padding: 20px 22px; }
     .form-card { padding: 28px 28px; }
     .topbar-inner { padding: 0 24px; }
+    /* Form — single column on tablet and mobile (per spec) */
+    .row-grid { grid-template-columns: 1fr; gap: 16px; margin-bottom: 20px; }
+    /* Status cards — stack on tablet too */
+    .status-row { flex-direction: column; gap: 8px; }
+    .status-opt { min-height: 44px; }
   }
 
   /* ── Mobile (≤ 480px) ────────────────────────────────────────────────── */
