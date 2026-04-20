@@ -257,6 +257,11 @@
     .status-opt { min-height: 44px; }
   }
 
+  /* ── Narrow viewport fix — tool chips (481–600px, e.g. Surface Duo 540px) */
+  @media (max-width: 600px) {
+    .chips { grid-template-columns: repeat(2, 1fr); }
+  }
+
   /* ── Mobile (≤ 480px) ────────────────────────────────────────────────── */
   @media (max-width: 480px) {
     /* Topbar */
