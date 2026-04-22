@@ -221,6 +221,53 @@
   .table-scroll table { min-width: 560px; }
   .breakdown.panel .table-scroll table { min-width: 400px; }
 
+  /* ── Drill-down History Component ──────────────────────────────────────── */
+  .breadcrumb { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 500; color: var(--ink-3); margin-bottom: 24px; padding-bottom: 12px; border-bottom: 1px solid var(--line-2); flex-wrap: wrap; }
+  .breadcrumb-item { cursor: pointer; transition: color 120ms; }
+  .breadcrumb-item:hover { color: var(--ink); }
+  .breadcrumb-item.current { color: var(--ink); cursor: default; }
+  .breadcrumb-sep { font-family: var(--mono); font-size: 11px; opacity: 0.5; }
+  .nav-arrows { margin-left: auto; display: flex; gap: 4px; }
+  .nav-arrow-btn { background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--r); padding: 4px 8px; color: var(--ink-3); transition: all 120ms; display: flex; align-items: center; justify-content: center; }
+  .nav-arrow-btn:hover { background: var(--line-2); color: var(--ink); border-color: var(--ink-3); }
+
+  .month-grid { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .month-grid th { text-align: left; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-3); padding: 10px 4px; border-bottom: 1px solid var(--line); }
+  .month-grid td { padding: 12px 4px; border-bottom: 1px solid var(--line-2); }
+  .month-grid tr:hover td { background: var(--surface-2); }
+  .month-grid .analyst-col { padding-left: 14px; position: sticky; left: 0; background: inherit; z-index: 1; }
+  .month-grid .day-col { text-align: center; width: 24px; cursor: pointer; }
+  .month-grid .day-col:hover { background: var(--line-2) !important; }
+  .month-grid .week-sep { border-right: 1px solid var(--line-2); }
+
+  .dot-status { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin: 0 auto; }
+  .dot-status.closed { background: var(--st-done); }
+  .dot-status.partial { background: var(--st-new); }
+  .dot-status.none { background: var(--line); }
+
+  .week-labels { display: flex; align-items: center; justify-content: space-between; margin-top: 16px; padding: 0 14px; }
+  .week-label { font-size: 12px; font-weight: 500; color: var(--accent); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; border-radius: 4px; padding: 4px 8px; margin: -4px -8px; }
+  .week-label:hover { background: var(--accent-soft); }
+
+  .week-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .week-table th { text-align: left; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-3); padding: 10px 14px; border-bottom: 1px solid var(--line); }
+  .week-table td { padding: 14px; border-bottom: 1px solid var(--line-2); color: var(--ink); }
+  .week-table tr:hover td { background: var(--surface-2); }
+  .week-cell { cursor: pointer; border-left: 1px solid var(--line-2); }
+  .week-cell:hover { background: var(--line-2) !important; filter: brightness(0.97); }
+  .bg-closed { background: rgba(45,90,61,0.06); }
+  .bg-partial { background: rgba(193,127,47,0.06); }
+  .bg-none { background: transparent; }
+  .compact-stat { display: flex; flex-direction: column; gap: 4px; font-family: var(--mono); font-size: 11.5px; }
+
+  .day-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; margin-top: 16px; }
+  .day-card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 20px; box-shadow: var(--shadow-sm); }
+  .day-card.muted { opacity: 0.6; background: var(--surface-2); }
+  .day-card-header { font-weight: 600; font-size: 14px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
+  .day-card-body { font-size: 13px; color: var(--ink-2); display: flex; flex-direction: column; gap: 8px; }
+  .day-stat { display: flex; justify-content: space-between; border-bottom: 1px dashed var(--line-2); padding-bottom: 4px; }
+  .day-stat-label { color: var(--ink-3); }
+
   /* ── Pagination bar ─────────────────────────────────────────────────────── */
   .pagination { display: flex; align-items: center; gap: 4px; padding: 16px 0 4px; flex-wrap: wrap; }
   .pg-btn { background: none; border: 1px solid var(--line); border-radius: var(--r);
@@ -676,26 +723,8 @@
     </div>
   </div>
 
-  <div class="panel checkin-history" style="margin-top: 32px;">
-    <div class="panel-header">
-      <div class="panel-title">This week's check-ins</div>
-      <div class="panel-meta">Last 7 days</div>
-    </div>
-    <div class="table-scroll">
-      <table>
-        <thead>
-          <tr>
-            <th>Date</th>
-            <th>Analyst</th>
-            <th>Morning</th>
-            <th>TDX</th>
-            <th>Cortex</th>
-            <th>Closed at</th>
-          </tr>
-        </thead>
-        <tbody id="ck-history-body"><tr><td colspan="6" class="loading">Loading…</td></tr></tbody>
-      </table>
-    </div>
+  <div id="history-container" style="margin-top: 32px;">
+    <div class="loading">Loading history…</div>
   </div>
 </div>
 
@@ -734,6 +763,15 @@
     tools: new Set(), status: 'in_progress',
   };
   let checkinState = { analystId: null };
+
+  let historyState = {
+    level: 'month',
+    year: new Date().getFullYear(),
+    month: new Date().getMonth(),
+    weekStart: null,
+    day: null,
+    cache: {}
+  };
 
   // Edit state
   let editState = {
@@ -870,15 +908,27 @@
     renderCheckin();
   }
 
-  async function loadCheckins() {
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-    const since = sevenDaysAgo.toISOString().slice(0,10);
+  async function fetchMonthCheckins(year, month) {
+    const key = `${year}-${String(month+1).padStart(2,'0')}`;
+    if (historyState.cache[key]) return historyState.cache[key];
+    
+    const start = new Date(year, month, 1).toISOString().slice(0,10);
+    const end = new Date(year, month + 1, 0).toISOString().slice(0,10);
+    
     const data = await sbGet(
       `/daily_checkins?select=*,analyst:analysts(id,full_name,short_name)` +
-      `&checkin_date=gte.${since}&order=checkin_date.desc&order=closed_at.desc`
+      `&checkin_date=gte.${start}&checkin_date=lte.${end}&order=checkin_date.desc&order=closed_at.desc`
     );
-    checkins = data;
+    historyState.cache[key] = data;
+    
+    const newIds = new Set(data.map(c => c.id));
+    checkins = [...checkins.filter(c => !newIds.has(c.id)), ...data];
+    return data;
+  }
+
+  async function loadCheckins() {
+    const d = new Date();
+    await fetchMonthCheckins(d.getFullYear(), d.getMonth());
     renderCheckin();
     renderDash();
   }
@@ -1602,42 +1652,368 @@
       closeBtn.className = 'btn btn-primary';
     }
 
-    renderCheckinHistory();
+    renderHistoryContainer();
   }
 
-  function renderCheckinHistory() {
-    const body = document.getElementById('ck-history-body');
-    if (checkins.length === 0) {
-      body.innerHTML = '<tr><td colspan="6" class="loading">No check-ins yet</td></tr>';
-      return;
-    }
-    const rows = checkins.slice(0, 30).map(c => {
-      const morningCount = (c.status_neb?1:0) + (c.teams?1:0) + (c.outlook?1:0);
-      const morningStr = `${morningCount}/3`;
-      const dayResolved = entries.filter(e =>
-        e.analystId === c.analyst_id && e.date === c.checkin_date && e.status === 'resolved'
-      );
-      const tdxN = dayResolved.filter(e => e.source === 'TDX').length;
-      const cxN  = dayResolved.filter(e => e.source === 'Cortex').length;
-      const tdxOk = tdxN >= 2 ? '✓' : `${tdxN}/2`;
-      const cxOk  = cxN  >= 2 ? '✓' : `${cxN}/2`;
-      const closedAt = c.closed_at
-        ? new Date(c.closed_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-        : '<span style="color:var(--ink-3)">—</span>';
-      const dateLabel = new Date(c.checkin_date + 'T12:00').toLocaleDateString(undefined, { weekday:'short', month:'short', day:'numeric' });
-      return `
-        <tr>
-          <td>${dateLabel}</td>
-          <td>${c.analyst?.short_name || '?'}</td>
-          <td><span style="font-family:var(--mono);font-size:12px">${morningStr}</span></td>
-          <td><span style="font-family:var(--mono);font-size:12px">${tdxOk}</span></td>
-          <td><span style="font-family:var(--mono);font-size:12px">${cxOk}</span></td>
-          <td><span style="font-family:var(--mono);font-size:12px">${closedAt}</span></td>
-        </tr>
-      `;
-    }).join('');
-    body.innerHTML = rows;
+  // ── History Drill-down Component ──────────────────────────────────────────
+
+  function getHistoryData(year, month) {
+    const key = `${year}-${String(month+1).padStart(2,'0')}`;
+    return historyState.cache[key] || [];
   }
+
+  function renderHistoryContainer() {
+    const container = document.getElementById('history-container');
+    if (!container) return;
+    
+    if (historyState.level === 'month') {
+      renderMonthView(container);
+    } else if (historyState.level === 'week') {
+      renderWeekView(container);
+    } else if (historyState.level === 'day') {
+      renderDayView(container);
+    }
+  }
+
+  function renderBreadcrumb(items) {
+    return `<div class="breadcrumb">` +
+      items.map((item, i) => {
+        if (!item.action) return `<span class="breadcrumb-item current">${item.label}</span>`;
+        return `<span class="breadcrumb-item" onclick="${item.action}">${item.label}</span>` +
+               `<span class="breadcrumb-sep">&gt;</span>`;
+      }).join('') +
+      (items[items.length-1].arrows || '') +
+      `</div>`;
+  }
+
+  async function showMonthView(year, month) {
+    historyState.level = 'month';
+    historyState.year = year;
+    historyState.month = month;
+    await fetchMonthCheckins(year, month);
+    renderHistoryContainer();
+  }
+
+  function showWeekView(year, month, weekStart) {
+    historyState.level = 'week';
+    historyState.year = year;
+    historyState.month = month;
+    historyState.weekStart = weekStart;
+    renderHistoryContainer();
+  }
+
+  function showDayView(year, month, weekStart, day) {
+    historyState.level = 'day';
+    historyState.year = year;
+    historyState.month = month;
+    historyState.weekStart = weekStart;
+    historyState.day = day;
+    renderHistoryContainer();
+  }
+
+  function getWeeksInMonth(year, month) {
+    const weeks = [];
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    
+    let current = new Date(firstDay);
+    // Rewind to Monday
+    const dayOfWeek = current.getDay();
+    const dist = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+    current.setDate(current.getDate() - dist);
+
+    while (current <= lastDay || current.getMonth() === month) {
+      const weekDates = [];
+      const mondayStr = current.toISOString().slice(0, 10);
+      for (let i = 0; i < 5; i++) { // Mon-Fri
+        const d = new Date(current);
+        d.setDate(current.getDate() + i);
+        if (d.getMonth() === month) {
+          weekDates.push(d.toISOString().slice(0, 10));
+        }
+      }
+      if (weekDates.length > 0) {
+        weeks.push({
+          mondayStr,
+          dates: weekDates,
+          label: `Week of ${new Date(mondayStr + 'T12:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`
+        });
+      }
+      current.setDate(current.getDate() + 7);
+    }
+    return weeks;
+  }
+
+  function renderMonthView(container) {
+    const { year, month } = historyState;
+    const dateObj = new Date(year, month, 1);
+    const monthName = dateObj.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+    
+    let prevYear = year, prevMonth = month - 1;
+    if (prevMonth < 0) { prevMonth = 11; prevYear--; }
+    let nextYear = year, nextMonth = month + 1;
+    if (nextMonth > 11) { nextMonth = 0; nextYear++; }
+
+    const arrows = `
+      <div class="nav-arrows">
+        <button class="nav-arrow-btn" onclick="showMonthView(${prevYear}, ${prevMonth})" title="Previous month">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M8 3L4 7l4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <button class="nav-arrow-btn" onclick="showMonthView(${nextYear}, ${nextMonth})" title="Next month">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M6 3l4 4-4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+      </div>`;
+
+    const breadcrumbHtml = renderBreadcrumb([
+      { label: monthName, action: null, arrows }
+    ]);
+
+    const weeks = getWeeksInMonth(year, month);
+    const data = getHistoryData(year, month);
+
+    let thead = `<tr><th class="analyst-col">Analyst</th>`;
+    weeks.forEach((w, i) => {
+      w.dates.forEach(d => {
+        const dayNum = parseInt(d.split('-')[2], 10);
+        thead += `<th class="day-col">${dayNum}</th>`;
+      });
+      if (i < weeks.length - 1) thead += `<th class="week-sep" style="width:0;padding:0"></th>`;
+    });
+    thead += `</tr>`;
+
+    let tbody = '';
+    analysts.forEach(a => {
+      tbody += `<tr><td class="analyst-col analyst-name">${a.short_name}</td>`;
+      weeks.forEach((w, i) => {
+        w.dates.forEach(d => {
+          const rec = data.find(c => c.analyst_id === a.id && c.checkin_date === d);
+          let dotClass = 'none';
+          if (rec) {
+            dotClass = rec.closed_at ? 'closed' : 'partial';
+          }
+          tbody += `<td class="day-col" onclick="showWeekView(${year}, ${month}, '${w.mondayStr}')"><span class="dot-status ${dotClass}"></span></td>`;
+        });
+        if (i < weeks.length - 1) tbody += `<td class="week-sep" style="width:0;padding:0"></td>`;
+      });
+      tbody += `</tr>`;
+    });
+
+    let weekLabelsHtml = `<div class="week-labels">`;
+    weeks.forEach(w => {
+      weekLabelsHtml += `<span class="week-label" onclick="showWeekView(${year}, ${month}, '${w.mondayStr}')">${w.label}</span>`;
+    });
+    weekLabelsHtml += `</div>`;
+
+    container.innerHTML = `
+      <div class="panel">
+        ${breadcrumbHtml}
+        <div class="table-scroll">
+          <table class="month-grid">
+            <thead>${thead}</thead>
+            <tbody>${tbody}</tbody>
+          </table>
+        </div>
+        ${weekLabelsHtml}
+      </div>
+    `;
+  }
+
+  function renderWeekView(container) {
+    const { year, month, weekStart } = historyState;
+    const monthName = new Date(year, month, 1).toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+    const weekStartObj = new Date(weekStart + 'T12:00');
+    
+    // Calculate prev/next week
+    const prevWeek = new Date(weekStartObj); prevWeek.setDate(prevWeek.getDate() - 7);
+    const nextWeek = new Date(weekStartObj); nextWeek.setDate(nextWeek.getDate() + 7);
+    const prevWeekStr = prevWeek.toISOString().slice(0, 10);
+    const nextWeekStr = nextWeek.toISOString().slice(0, 10);
+    // Need to handle month transitions if navigating weeks
+    const prevWMonth = prevWeek.getMonth(), prevWYear = prevWeek.getFullYear();
+    const nextWMonth = nextWeek.getMonth(), nextWYear = nextWeek.getFullYear();
+
+    const weekLabel = `Week of ${weekStartObj.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`;
+
+    const arrows = `
+      <div class="nav-arrows">
+        <button class="nav-arrow-btn" onclick="showMonthView(${prevWYear}, ${prevWMonth}).then(() => showWeekView(${prevWYear}, ${prevWMonth}, '${prevWeekStr}'))" title="Previous week">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M8 3L4 7l4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <button class="nav-arrow-btn" onclick="showMonthView(${nextWYear}, ${nextWMonth}).then(() => showWeekView(${nextWYear}, ${nextWMonth}, '${nextWeekStr}'))" title="Next week">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M6 3l4 4-4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+      </div>`;
+
+    const breadcrumbHtml = renderBreadcrumb([
+      { label: monthName, action: `showMonthView(${year}, ${month})` },
+      { label: weekLabel, action: null, arrows }
+    ]);
+
+    const data = getHistoryData(year, month);
+    const days = [];
+    const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+    for (let i = 0; i < 5; i++) {
+      const d = new Date(weekStartObj);
+      d.setDate(weekStartObj.getDate() + i);
+      const dStr = d.toISOString().slice(0, 10);
+      days.push({
+        date: dStr,
+        label: `${dayNames[i]}, ${d.getDate()}`
+      });
+    }
+
+    let thead = `<tr><th>Analyst</th>`;
+    days.forEach(d => {
+      thead += `<th>${d.label}</th>`;
+    });
+    thead += `</tr>`;
+
+    let tbody = '';
+    analysts.forEach(a => {
+      tbody += `<tr><td class="analyst-name">${a.short_name}</td>`;
+      days.forEach(d => {
+        const rec = data.find(c => c.analyst_id === a.id && c.checkin_date === d.date);
+        if (!rec) {
+          tbody += `<td class="week-cell bg-none" onclick="showDayView(${year}, ${month}, '${weekStart}', '${d.date}')"><div class="compact-stat"><span style="color:var(--ink-3)">—</span></div></td>`;
+          return;
+        }
+
+        const morningCount = (rec.status_neb?1:0) + (rec.teams?1:0) + (rec.outlook?1:0);
+        
+        const dayResolved = entries.filter(e => e.analystId === a.id && e.date === d.date && e.status === 'resolved');
+        const tdxN = dayResolved.filter(e => e.source === 'TDX').length;
+        const cxN  = dayResolved.filter(e => e.source === 'Cortex').length;
+        const tdxOk = tdxN >= 2 ? '✓' : `${tdxN}/2`;
+        const cxOk  = cxN  >= 2 ? '✓' : `${cxN}/2`;
+        
+        const closedAt = rec.closed_at
+          ? new Date(rec.closed_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+          : '—';
+          
+        const bgClass = rec.closed_at ? 'bg-closed' : 'bg-partial';
+
+        tbody += `
+          <td class="week-cell ${bgClass}" onclick="showDayView(${year}, ${month}, '${weekStart}', '${d.date}')">
+            <div class="compact-stat">
+              <span>Morn: ${morningCount}/3</span>
+              <span>TDX: ${tdxOk}</span>
+              <span>Ctx: ${cxOk}</span>
+              <span>Clsd: ${closedAt}</span>
+            </div>
+          </td>`;
+      });
+      tbody += `</tr>`;
+    });
+
+    container.innerHTML = `
+      <div class="panel">
+        ${breadcrumbHtml}
+        <div class="table-scroll">
+          <table class="week-table">
+            <thead>${thead}</thead>
+            <tbody>${tbody}</tbody>
+          </table>
+        </div>
+      </div>
+    `;
+  }
+
+  function renderDayView(container) {
+    const { year, month, weekStart, day } = historyState;
+    const monthName = new Date(year, month, 1).toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+    const weekLabel = `Week of ${new Date(weekStart + 'T12:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`;
+    const dayObj = new Date(day + 'T12:00');
+    const dayLabel = dayObj.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+
+    // Calculate prev/next day
+    const prevDay = new Date(dayObj); prevDay.setDate(prevDay.getDate() - (prevDay.getDay() === 1 ? 3 : 1)); // Skip weekend
+    const nextDay = new Date(dayObj); nextDay.setDate(nextDay.getDate() + (nextDay.getDay() === 5 ? 3 : 1)); // Skip weekend
+    const prevDayStr = prevDay.toISOString().slice(0, 10);
+    const nextDayStr = nextDay.toISOString().slice(0, 10);
+    
+    // Rough weekStart calculation for navigation
+    const prevWeekStart = new Date(prevDay); prevWeekStart.setDate(prevWeekStart.getDate() - (prevWeekStart.getDay() === 0 ? 6 : prevWeekStart.getDay() - 1));
+    const nextWeekStart = new Date(nextDay); nextWeekStart.setDate(nextWeekStart.getDate() - (nextWeekStart.getDay() === 0 ? 6 : nextWeekStart.getDay() - 1));
+    const prevWeekStartStr = prevWeekStart.toISOString().slice(0, 10);
+    const nextWeekStartStr = nextWeekStart.toISOString().slice(0, 10);
+    
+    const prevDMonth = prevDay.getMonth(), prevDYear = prevDay.getFullYear();
+    const nextDMonth = nextDay.getMonth(), nextDYear = nextDay.getFullYear();
+
+    const arrows = `
+      <div class="nav-arrows">
+        <button class="nav-arrow-btn" onclick="showMonthView(${prevDYear}, ${prevDMonth}).then(() => showDayView(${prevDYear}, ${prevDMonth}, '${prevWeekStartStr}', '${prevDayStr}'))" title="Previous day">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M8 3L4 7l4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <button class="nav-arrow-btn" onclick="showMonthView(${nextDYear}, ${nextDMonth}).then(() => showDayView(${nextDYear}, ${nextDMonth}, '${nextWeekStartStr}', '${nextDayStr}'))" title="Next day">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M6 3l4 4-4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+      </div>`;
+
+    const breadcrumbHtml = renderBreadcrumb([
+      { label: monthName, action: `showMonthView(${year}, ${month})` },
+      { label: weekLabel, action: `showWeekView(${year}, ${month}, '${weekStart}')` },
+      { label: dayLabel, action: null, arrows }
+    ]);
+
+    const isToday = day === todayStr();
+    let contentHtml = '';
+
+    if (isToday) {
+      contentHtml = `<div class="empty-state"><h3>Today's checklist is above ↑</h3><p>Use the section at the top of the page to view or update today's status.</p></div>`;
+    } else {
+      const data = getHistoryData(year, month);
+      let cardsHtml = '';
+      
+      analysts.forEach(a => {
+        const rec = data.find(c => c.analyst_id === a.id && c.checkin_date === day);
+        if (!rec) {
+          cardsHtml += `
+            <div class="day-card muted">
+              <div class="day-card-header"><span>${a.full_name}</span><span style="font-size:11px;font-weight:500;color:var(--ink-3);padding:2px 6px;border:1px solid var(--line);border-radius:4px">Absent</span></div>
+              <div class="day-card-body"><span style="color:var(--ink-3)">No check-in record</span></div>
+            </div>`;
+          return;
+        }
+
+        const m1 = rec.status_neb ? '✓ Status.nebraska.edu' : '✗ Status.nebraska.edu';
+        const m2 = rec.teams ? '✓ Teams' : '✗ Teams';
+        const m3 = rec.outlook ? '✓ Outlook' : '✗ Outlook';
+        
+        const dayResolved = entries.filter(e => e.analystId === a.id && e.date === day && e.status === 'resolved');
+        const tdx = dayResolved.filter(e => e.source === 'TDX');
+        const cx  = dayResolved.filter(e => e.source === 'Cortex');
+        
+        const tdxStr = tdx.length > 0 ? `${tdx.length} (${tdx.map(t=>t.ticketRef).join(', ')})` : '0';
+        const cxStr = cx.length > 0 ? `${cx.length} (${cx.map(t=>t.ticketRef).join(', ')})` : '0';
+        
+        const closedAt = rec.closed_at
+          ? new Date(rec.closed_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+          : 'Not closed';
+
+        cardsHtml += `
+          <div class="day-card">
+            <div class="day-card-header"><span>${a.full_name}</span><span style="font-size:11px;font-weight:500;color:${rec.closed_at ? 'var(--st-done)' : 'var(--st-new)'};background:${rec.closed_at ? 'var(--st-done-bg)' : 'var(--st-new-bg)'};padding:2px 6px;border-radius:4px">${rec.closed_at ? 'Closed out' : 'In progress'}</span></div>
+            <div class="day-card-body">
+              <div class="day-stat"><span class="day-stat-label">Morning</span><span style="text-align:right;font-family:var(--mono);font-size:11.5px">${m1}<br>${m2}<br>${m3}</span></div>
+              <div class="day-stat"><span class="day-stat-label">TDX resolved</span><span style="font-family:var(--mono);font-size:12px">${tdxStr}</span></div>
+              <div class="day-stat"><span class="day-stat-label">Cortex resolved</span><span style="font-family:var(--mono);font-size:12px">${cxStr}</span></div>
+              <div class="day-stat" style="border:none"><span class="day-stat-label">Shift closed at</span><span style="font-family:var(--mono);font-size:12px">${closedAt}</span></div>
+            </div>
+          </div>`;
+      });
+      
+      contentHtml = `<div class="day-cards">${cardsHtml}</div>`;
+    }
+
+    container.innerHTML = `
+      <div class="panel">
+        ${breadcrumbHtml}
+        ${contentHtml}
+      </div>
+    `;
+  }
+
 
   async function toggleCheckin(key) {
     if (!['status_neb','teams','outlook'].includes(key)) return;
